@@ -1,92 +1,130 @@
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "directory.h"
 
+static int containsNode(Node *root, Node *target);
+
+// Create a new file or directory node
 Node *createNode(const char *name, int isFile, int fileSize)
 {
-    // Step 1: Allocate memory for a new node
+    // Validate input
+    if (name == NULL || name[0] == '\0' || strchr(name, '/') != NULL)
+{
+    printf("Error: Name cannot be empty or contain '/'.\n");
+    return NULL;
+}
+
+    if (strlen(name) >= sizeof(((Node *)0)->name))
+    {
+        printf("Error: Name is too long! Maximum 49 characters allowed.\n");
+        return NULL;
+    }
+
+    if (isFile != 0 && isFile != 1)
+    {
+        printf("Error: Invalid file/directory type!\n");
+        return NULL;
+    }
+
+    if (fileSize < 0)
+    {
+        printf("Error: File size cannot be negative!\n");
+        return NULL;
+    }
+
+    // Allocate memory
     Node *newNode = (Node *)malloc(sizeof(Node));
 
-    // Step 2: Check whether memory allocation succeeded
     if (newNode == NULL)
     {
         printf("Error: Memory allocation failed!\n");
         return NULL;
     }
 
-    // Step 3: Store the name
-    snprintf(newNode->name, sizeof(newNode->name), "%s", name);
-
-    // Step 4: Store file or directory information
+    // Store node information
+    strcpy(newNode->name, name);
     newNode->isFile = isFile;
     newNode->fileSize = fileSize;
 
-    // Step 5: Initialize both pointers
+    // Initialize pointers
     newNode->firstChild = NULL;
     newNode->nextSibling = NULL;
 
-    // Step 6: Return the address of the new node
     return newNode;
 }
 
+// Insert a child into a parent directory
 int insertChild(Node *parent, Node *child)
 {
-    // Check for valid nodes
     if (parent == NULL || child == NULL)
     {
         return 0;
     }
 
-    // A file cannot contain other entries
+    // Prevent inserting a node into itself or its own subtree
+    if (parent == child || containsNode(child, parent))
+    {
+        return 0;
+    }
+
     if (parent->isFile == 1)
     {
         return 0;
     }
 
-    // The child must be a detached node
     if (child->nextSibling != NULL)
     {
         return 0;
     }
 
-    // If parent has no children
+    // Prevent duplicate names
+    Node *current = parent->firstChild;
+
+    while (current != NULL)
+    {
+        if (strcmp(current->name, child->name) == 0)
+        {
+            return 0;
+        }
+
+        current = current->nextSibling;
+    }
+
+    // Insert first child
     if (parent->firstChild == NULL)
     {
         parent->firstChild = child;
         return 1;
     }
 
-    // Find the last child
-    Node *current = parent->firstChild;
+    // Find last child
+    current = parent->firstChild;
 
     while (current->nextSibling != NULL)
     {
         current = current->nextSibling;
     }
 
-    // Attach the new child
     current->nextSibling = child;
 
     return 1;
 }
 
-
+// Display directory tree
 void displayTree(Node *root, int level)
 {
-    // Base case: stop if node does not exist
     if (root == NULL)
     {
         return;
     }
 
-    // Print indentation according to tree depth
     for (int i = 0; i < level; i++)
     {
         printf("    ");
     }
 
-    // Display directory or file
     if (root->isFile == 1)
     {
         printf("[FILE] %s (%d bytes)\n",
@@ -97,29 +135,23 @@ void displayTree(Node *root, int level)
         printf("[DIR]  %s/\n", root->name);
     }
 
-    // Visit the first child at the next level
     displayTree(root->firstChild, level + 1);
-
-    // Visit the next sibling at the same level
     displayTree(root->nextSibling, level);
 }
 
-
+// Search for a node
 Node *searchNode(Node *root, const char *name)
 {
-    // Base case: node does not exist
-    if (root == NULL)
+    if (root == NULL || name == NULL)
     {
         return NULL;
     }
 
-    // Compare current node's name
     if (strcmp(root->name, name) == 0)
     {
         return root;
     }
 
-    // Search in the first child and its subtree
     Node *result = searchNode(root->firstChild, name);
 
     if (result != NULL)
@@ -127,13 +159,78 @@ Node *searchNode(Node *root, const char *name)
         return result;
     }
 
-    // Search among the next siblings
     return searchNode(root->nextSibling, name);
 }
 
+// Search for a node using its complete path
+Node *searchPath(Node *root, const char *path)
+{
+    if (root == NULL || path == NULL || path[0] == '\0')
+    {
+        return NULL;
+    }
+
+    char pathCopy[256];
+
+    if (strlen(path) >= sizeof(pathCopy))
+    {
+        return NULL;
+    }
+
+    // Reject paths with invalid separators
+size_t pathLength = strlen(path);
+
+if (path[0] == '/' ||
+    path[pathLength - 1] == '/' ||
+    strstr(path, "//") != NULL)
+{
+    return NULL;
+}
+
+    strcpy(pathCopy, path);
+
+    char *token = strtok(pathCopy, "/");
+
+    // First part of the path must match the root
+    if (token == NULL || strcmp(root->name, token) != 0)
+    {
+        return NULL;
+    }
+
+    Node *current = root;
+
+    // Process each remaining directory or file name
+    token = strtok(NULL, "/");
+
+    while (token != NULL)
+    {
+        if (current->isFile == 1)
+        {
+            return NULL;
+        }
+
+        Node *child = current->firstChild;
+
+        while (child != NULL && strcmp(child->name, token) != 0)
+        {
+            child = child->nextSibling;
+        }
+
+        if (child == NULL)
+        {
+            return NULL;
+        }
+
+        current = child;
+        token = strtok(NULL, "/");
+    }
+
+    return current;
+}
+
+// Delete a child
 int deleteChild(Node *parent, const char *name)
 {
-    // Validate the parent
     if (parent == NULL || name == NULL || parent->isFile == 1)
     {
         return 0;
@@ -142,12 +239,10 @@ int deleteChild(Node *parent, const char *name)
     Node *current = parent->firstChild;
     Node *previous = NULL;
 
-    // Search for the child to delete
     while (current != NULL)
     {
         if (strcmp(current->name, name) == 0)
         {
-            // If target is the first child
             if (previous == NULL)
             {
                 parent->firstChild = current->nextSibling;
@@ -157,10 +252,8 @@ int deleteChild(Node *parent, const char *name)
                 previous->nextSibling = current->nextSibling;
             }
 
-            // Disconnect target from remaining siblings
             current->nextSibling = NULL;
 
-            // Free target and its descendants
             freeTree(current);
 
             return 1;
@@ -170,11 +263,192 @@ int deleteChild(Node *parent, const char *name)
         current = current->nextSibling;
     }
 
-    // Child was not found
     return 0;
 }
 
-// Release the entire tree
+// Check whether a node exists in another node's subtree
+static int containsNode(Node *root, Node *target)
+{
+    if (root == NULL)
+    {
+        return 0;
+    }
+
+    if (root == target)
+    {
+        return 1;
+    }
+
+    Node *child = root->firstChild;
+
+    while (child != NULL)
+    {
+        if (containsNode(child, target))
+        {
+            return 1;
+        }
+
+        child = child->nextSibling;
+    }
+
+    return 0;
+}
+
+// Move a child between directories
+int moveChild(Node *sourceParent, Node *destinationParent,
+              const char *childName)
+{
+    if (sourceParent == NULL ||
+        destinationParent == NULL ||
+        childName == NULL ||
+        childName[0] == '\0')
+    {
+        return 0;
+    }
+
+    if (sourceParent->isFile == 1 ||
+        destinationParent->isFile == 1)
+    {
+        return 0;
+    }
+
+    Node *current = sourceParent->firstChild;
+    Node *previous = NULL;
+
+    while (current != NULL &&
+           strcmp(current->name, childName) != 0)
+    {
+        previous = current;
+        current = current->nextSibling;
+    }
+
+    if (current == NULL)
+    {
+        return 0;
+    }
+
+    if (sourceParent == destinationParent)
+    {
+        return 1;
+    }
+
+    if (containsNode(current, destinationParent))
+    {
+        return 0;
+    }
+
+    // Prevent duplicate names in destination
+    Node *temp = destinationParent->firstChild;
+
+    while (temp != NULL)
+    {
+        if (strcmp(temp->name, current->name) == 0)
+        {
+            return 0;
+        }
+
+        temp = temp->nextSibling;
+    }
+
+    // Detach from source
+    if (previous == NULL)
+    {
+        sourceParent->firstChild = current->nextSibling;
+    }
+    else
+    {
+        previous->nextSibling = current->nextSibling;
+    }
+
+    current->nextSibling = NULL;
+
+    // Attach to destination
+    if (destinationParent->firstChild == NULL)
+    {
+        destinationParent->firstChild = current;
+    }
+    else
+    {
+        temp = destinationParent->firstChild;
+
+        while (temp->nextSibling != NULL)
+        {
+            temp = temp->nextSibling;
+        }
+
+        temp->nextSibling = current;
+    }
+
+    return 1;
+}
+
+// Rename a child
+int renameChild(Node *parent, const char *oldName, const char *newName)
+{
+    if (parent == NULL || oldName == NULL || newName == NULL)
+    {
+        return 0;
+    }
+
+    if (parent->isFile == 1)
+    {
+        return 0;
+    }
+
+   if (oldName[0] == '\0' || newName[0] == '\0' ||
+    strchr(newName, '/') != NULL)
+{
+    printf("Error: New name cannot be empty or contain '/'.\n");
+    return 0;
+}
+
+    if (strlen(newName) >= sizeof(parent->name))
+    {
+        return 0;
+    }
+
+    Node *current = parent->firstChild;
+
+    while (current != NULL &&
+           strcmp(current->name, oldName) != 0)
+    {
+        current = current->nextSibling;
+    }
+
+    if (current == NULL)
+    {
+        return 0;
+    }
+
+    if (strcmp(oldName, newName) == 0)
+    {
+        return 1;
+    }
+
+    // Prevent duplicate names
+    Node *temp = parent->firstChild;
+
+    while (temp != NULL)
+    {
+        if (temp != current &&
+            strcmp(temp->name, newName) == 0)
+        {
+            return 0;
+        }
+
+        temp = temp->nextSibling;
+    }
+
+    char newNameCopy[sizeof(current->name)];
+
+    snprintf(newNameCopy, sizeof(newNameCopy), "%s", newName);
+
+    strcpy(current->name, newNameCopy);
+
+    return 1;
+}
+
+// Free the entire tree
 void freeTree(Node *root)
 {
     if (root == NULL)
@@ -187,4 +461,3 @@ void freeTree(Node *root)
 
     free(root);
 }
-

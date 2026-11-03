@@ -22,6 +22,13 @@ void displayTree(Node *root, int level);
 
 Node *searchNode(Node *root, const char *name);
 
+Node *searchPath(Node *root, const char *path);
+
 int deleteChild(Node *parent, const char *name);
+
+int renameChild(Node *parent, const char *oldName, const char *newName);
+
+int moveChild(Node *sourceParent, Node *destinationParent,
+              const char *childName);
 
 #endif
