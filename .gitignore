@@ -56,3 +56,9 @@ dkms.conf
 
 # VS Code workspace settings
 .vscode/
+
+# NEXORA generated build files
+/build/
+*.asan
+
+README.md.save
