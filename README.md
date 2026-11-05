@@ -91,8 +91,9 @@ NEXORA/
 ```text
 NEXORA/
 ├── src/
-│   ├── directory.c
-│   ├── directory.h
+│   ├── core/
+│   │   ├── directory.c
+│   │   └── directory.h
 │   └── main.c
 ├── tests/
 │   ├── test_cycle.c
@@ -125,7 +126,7 @@ NEXORA/
 mkdir -p build
 
 gcc -Wall -Wextra -Wpedantic -std=c11 \
--I src src/main.c src/directory.c \
+-I src src/main.c src/core/directory.c \
 -o build/nexora
 ```
 

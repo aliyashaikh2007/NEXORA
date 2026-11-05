@@ -1,7 +1,7 @@
 # NEXORA — Function Reference
 
 This document describes the functions implemented in
-`src/directory.c`.
+`src/core/directory.c`.
 
 ## 1. createNode()
 

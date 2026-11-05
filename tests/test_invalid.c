@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "directory.h"
+#include "core/directory.h"
 
 int passed = 0;
 int failed = 0;

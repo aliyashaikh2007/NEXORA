@@ -4,7 +4,7 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
-#include "directory.h"
+#include "core/directory.h"
 
 // Track whether input has ended unexpectedly
 int inputEnded = 0;

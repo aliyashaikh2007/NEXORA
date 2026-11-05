@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "directory.h"
+#include "core/directory.h"
 
 // Create a node and safely attach it to its parent
 Node *addTestNode(Node *parent, const char *name, int isFile, int fileSize)

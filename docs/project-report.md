@@ -142,7 +142,7 @@ The application uses the C11 standard and can be compiled using GCC with warning
 Example compilation command:
 
 ```bash
-gcc -Wall -Wextra -Wpedantic -std=c11 -I src src/main.c src/directory.c -o build/nexora
+gcc -Wall -Wextra -Wpedantic -std=c11 -I src src/main.c src/core/directory.c -o build/nexora
 ```
 
 # 6. DATA STRUCTURE USED
