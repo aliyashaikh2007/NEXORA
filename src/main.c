@@ -1,10 +1,11 @@
-
+#include "backend/server.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
 #include "core/directory.h"
+#include "database/database.h"
 
 // Track whether input has ended unexpectedly
 int inputEnded = 0;
@@ -95,48 +96,65 @@ void displayMenu(void)
 
 int main(void)
 {
-    // Create root directory
-    Node *root = createNode("NEXORA", 0, 0);
-
-    if (root == NULL)
-    {
-        printf("Unable to create NEXORA.\n");
+        // Initialize SQLite database
+    if (!database_init("database/nexora.db")) {
+        printf("Unable to initialize database.\n");
         return 1;
     }
 
-    // Create initial sample structure
-    Node *documents = createNode("Documents", 0, 0);
-    Node *projects = createNode("Projects", 0, 0);
-    Node *readme = createNode("README.md", 1, 15);
+    // Load previously saved directory tree
+    Node *root = database_load();
 
-    Node *threatLens = createNode("ThreatLens", 0, 0);
-    Node *src = createNode("src", 0, 0);
-    Node *mainFile = createNode("main.py", 1, 120);
+    // Create sample structure only for a new database
+    if (root == NULL) {
+        printf("Creating initial NEXORA structure...\n");
 
-    if (documents == NULL || projects == NULL ||
-        readme == NULL || threatLens == NULL ||
-        src == NULL || mainFile == NULL)
-    {
-        printf("Memory allocation failed.\n");
+        root = createNode("NEXORA", 0, 0);
 
-        freeTree(root);
-        freeTree(documents);
-        freeTree(projects);
-        freeTree(readme);
-        freeTree(threatLens);
-        freeTree(src);
-        freeTree(mainFile);
+        Node *documents = createNode("Documents", 0, 0);
+        Node *projects = createNode("Projects", 0, 0);
+        Node *readme = createNode("README.md", 1, 15);
 
-        return 1;
+        Node *threatLens = createNode("ThreatLens", 0, 0);
+        Node *src = createNode("src", 0, 0);
+        Node *mainFile = createNode("main.py", 1, 120);
+
+        if (root == NULL || documents == NULL ||
+            projects == NULL || readme == NULL ||
+            threatLens == NULL || src == NULL ||
+            mainFile == NULL) {
+
+            printf("Memory allocation failed.\n");
+
+            freeTree(root);
+            freeTree(documents);
+            freeTree(projects);
+            freeTree(readme);
+            freeTree(threatLens);
+            freeTree(src);
+            freeTree(mainFile);
+
+            database_close();
+            return 1;
+        }
+
+        insertChild(root, documents);
+        insertChild(root, projects);
+        insertChild(root, readme);
+        insertChild(projects, threatLens);
+        insertChild(threatLens, src);
+        insertChild(src, mainFile);
+
+        if (!database_save(root)) {
+            printf("Initial database save failed.\n");
+            freeTree(root);
+            database_close();
+            return 1;
+        }
     }
-
-    insertChild(root, documents);
-    insertChild(root, projects);
-    insertChild(root, readme);
-    insertChild(projects, threatLens);
-    insertChild(threatLens, src);
-    insertChild(src, mainFile);
-
+    if (!server_start(root)) {
+    printf("Warning: HTTP server could not start. CLI mode will continue.\n");
+}
     int choice;
 
     do
@@ -367,11 +385,16 @@ int main(void)
             default:
                 printf("Invalid choice. Please try again.\n");
         }
-
+                // Automatically persist the current directory tree
+        if (!database_save(root)) {
+            printf("Warning: Database save failed!\n");
+        }
     } while (choice != 7 && !inputEnded);
 
     // Release all dynamically allocated memory
+    server_stop();
     freeTree(root);
+    database_close();
 
     printf("Memory released successfully.\n");
 

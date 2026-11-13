@@ -1,229 +1,200 @@
-# NEXORA — Application Architecture
+python3 -c "from pathlib import Path; p=Path('docs/architecture/application-architecture.md'); p.write_text('''# NEXORA – Application Architecture
 
-## 1. Project Overview
+## 1. Overview
 
-NEXORA is a Smart Virtual File Directory Management System designed to provide a web-based interface for managing virtual files and directories.
+NEXORA is a Smart Virtual File Directory Management System implemented in C. It provides a console-based interface, a C-based directory management engine, an HTTP backend, and SQLite database persistence.
 
-The application uses a General Tree represented through the First Child–Next Sibling (FCNS) technique as its core data structure.
+The system uses a General Tree represented through the First Child–Next Sibling (FCNS) technique.
 
-The existing console-based C implementation will be extended into a complete web application while preserving its original Data Structures implementation.
+NEXORA manages a virtual directory structure. It does not directly modify the computer’s physical file system.
 
-## 2. Architectural Objectives
+## 2. Architecture Objectives
 
-- Preserve the existing C-based directory management engine.
-- Provide a modern web-based user interface.
-- Implement a backend entirely in C.
-- Support persistent virtual directory storage.
-- Reconstruct the in-memory FCNS tree from SQLite during startup.
-- Provide HTTP APIs for frontend communication.
-- Maintain consistency between the in-memory tree and database.
+- Provide a menu-driven console interface.
+- Implement directory operations using a General Tree.
+- Support creating, displaying, searching, renaming, moving, and deleting nodes.
+- Provide HTTP API endpoints through CivetWeb.
+- Exchange API data using JSON and cJSON.
+- Persist directory information using SQLite.
+- Maintain modular, testable C source code.
 
 ## 3. Technology Stack
 
 | Component | Technology |
 |---|---|
-| Frontend | HTML, CSS, JavaScript |
-| Backend | C Programming |
-| HTTP Server | CivetWeb |
-| JSON Processing | cJSON |
+| Programming Language | C |
+| User Interface | Console |
 | Core Data Structure | General Tree |
 | Tree Representation | First Child–Next Sibling |
+| HTTP Backend | CivetWeb |
+| JSON Processing | cJSON |
 | Database | SQLite |
-| Database Interface | SQLite C API |
 | Compiler | GCC |
-| Development Environment | WSL Ubuntu and VS Code |
+| Build System | Makefile |
+| Development Environment | WSL Ubuntu |
 
-Library versions, compatibility and licensing will be verified before integration.
+## 4. System Components
 
-## 4. System Architecture
+### 4.1 Console Interface
 
-NEXORA consists of five major layers.
+The console interface is the primary way users interact with NEXORA.
 
-### 4.1 Presentation Layer
+It provides menu options for:
+- Creating files and directories.
+- Displaying the directory structure.
+- Searching for files and directories.
+- Renaming items.
+- Moving items.
+- Deleting items.
+- Exiting the application.
 
-Technologies: HTML, CSS and JavaScript.
+Implementation: `src/main.c`
 
-Responsibilities:
-- Display the NEXORA dashboard.
-- Display folders and files.
-- Visualize the directory hierarchy.
-- Provide search and navigation.
-- Send requests to backend APIs.
+### 4.2 Core Directory Management Engine
 
-### 4.2 HTTP Server Layer
+The core engine implements directory operations using a General Tree and the First Child–Next Sibling representation.
 
-Technology: CivetWeb.
+Implementation:
+- `src/core/directory.c`
+- `src/core/directory.h`
 
-Responsibilities:
-- Start the embedded HTTP server.
-- Serve frontend resources.
-- Receive HTTP requests.
-- Forward API requests to application logic.
-- Return HTTP responses.
+### 4.3 HTTP Backend
 
-### 4.3 Application Layer
+The HTTP backend is implemented using CivetWeb. It exposes API endpoints that allow external clients to interact with the directory management system.
 
-Technology: C and cJSON.
+JSON request and response processing is handled using cJSON.
 
-Responsibilities:
-- Process API requests.
-- Parse JSON input.
-- Validate user operations.
-- Coordinate database and tree operations.
-- Generate JSON responses.
-- Handle errors safely.
+Implementation:
+- `src/backend/server.c`
+- `src/backend/server.h`
 
-### 4.4 Core Data Structure Layer
+The backend does not require a browser-based frontend. API endpoints can be tested using command-line HTTP clients such as curl.
 
-Technology: C with General Tree and FCNS representation.
+### 4.4 Database Layer
 
-Responsibilities:
-- Create directory and file nodes.
-- Insert child nodes.
-- Search files and directories.
-- Rename items.
-- Move directory subtrees.
-- Delete items.
-- Traverse and display the hierarchy.
-- Manage dynamic memory.
+SQLite provides persistent storage for the virtual directory structure.
 
-The existing core engine will be preserved and integrated into the new application.
+The database layer supports saving and loading directory information.
 
-### 4.5 Persistence Layer
+Implementation:
+- `src/database/database.c`
+- `src/database/database.h`
 
-Technology: SQLite using the SQLite C API.
+Database file: `database/nexora.db`
 
-Responsibilities:
-- Store virtual directories and files.
-- Maintain parent-child relationships.
-- Preserve metadata.
-- Support database transactions.
-- Load records during application startup.
+## 5. Core Data Structure
 
-## 5. Data Structure Design
+Each directory or file is represented by a node.
 
-Each virtual file or directory will be represented by a node.
+The node structure contains:
 
-The initial FCNS structure contains:
+| Field | Description |
+|---|---|
+| `name` | Name of the file or directory |
+| `isFile` | Identifies whether the node is a file |
+| `fileSize` | Stores the file size |
+| `firstChild` | Points to the first child node |
+| `nextSibling` | Points to the next sibling node |
 
-- name
-- isFile
-- fileSize
-- firstChild
-- nextSibling
+The First Child–Next Sibling representation allows a general tree to be implemented using two pointers per node.
 
-The database will maintain persistent identifiers and parent relationships. These identifiers will be mapped to in-memory nodes during reconstruction.
+## 6. Application Workflow
 
-## 6. Database Persistence Strategy
+### Startup
 
-SQLite will act as the persistent source of truth.
+1. The application initializes the SQLite database.
+2. Previously stored directory information is loaded.
+3. The HTTP backend is started.
+4. The console menu is displayed.
+5. The user selects an operation.
+6. The core engine performs the requested operation.
+7. Changes are persisted in the database.
 
-### Startup Procedure
+### Shutdown
 
-1. Open the SQLite database.
-2. Initialize the database schema if required.
-3. Retrieve stored directory and file records.
-4. Validate parent-child relationships.
-5. Reconstruct the General Tree.
-6. Establish FCNS pointers.
-7. Start the HTTP server.
+1. The HTTP server is stopped.
+2. The directory structure is saved.
+3. Database resources are closed.
+4. Allocated memory is released as appropriate.
 
-### Operation Procedure
+## 7. HTTP API Communication
 
-1. Receive an API request.
-2. Validate the requested operation.
-3. Prepare the required tree and database changes.
-4. Execute database modifications inside a transaction.
-5. Apply the corresponding in-memory tree operation.
-6. Commit or roll back safely.
-7. Return the operation result.
+The backend exposes HTTP endpoints for directory operations.
 
-The implementation must prevent inconsistent states between SQLite and the in-memory tree.
+Clients send HTTP requests containing JSON data. The backend processes these requests and returns JSON responses.
 
-## 7. Communication Architecture
+The API can be tested independently using tools such as curl.
 
-The frontend and backend will communicate through HTTP requests and JSON responses.
+There is no HTML, CSS, JavaScript, or browser-based dashboard in the current project scope.
 
-Proposed endpoints:
-
-| Method | Endpoint | Responsibility |
-|---|---|---|
-| GET | /api/tree | Retrieve directory hierarchy |
-| POST | /api/folders | Create a folder |
-| POST | /api/files | Create a virtual file |
-| GET | /api/search | Search an item |
-| PUT | /api/rename | Rename an item |
-| PUT | /api/move | Move an item |
-| DELETE | /api/items | Delete an item |
-
-Detailed request formats, response formats and error codes will be defined during API development.
-
-## 8. Target Project Structure
+## 8. Project Directory Structure
 
 ```text
 NEXORA/
-├── src/
-│   ├── core/
-│   │   ├── directory.c
-│   │   └── directory.h
-│   ├── backend/
-│   │   ├── server.c
-│   │   ├── routes.c
-│   │   └── routes.h
-│   ├── database/
-│   │   ├── database.c
-│   │   └── database.h
-│   └── main.c
-├── frontend/
-│   ├── index.html
-│   ├── css/
-│   ├── js/
-│   └── assets/
-├── database/
-├── tests/
-├── docs/
-├── build/
-├── README.md
-└── .gitignore
-```
+|
+|-- src/
+|   |-- core/
+|   |   |-- directory.c
+|   |   |-- directory.h
+|   |
+|   |-- backend/
+|   |   |-- server.c
+|   |   |-- server.h
+|   |
+|   |-- database/
+|   |   |-- database.c
+|   |   |-- database.h
+|   |
+|   |-- main.c
+|
+|-- database/
+|   |-- nexora.db
+|
+|-- tests/
+|   |-- test_cycle.c
+|   |-- test_delete.c
+|   |-- test_invalid.c
+|   |-- test_memory.c
+|   |-- test_move.c
+|   |-- test_rename.c
+|
+|-- docs/
+|-- build/
+|-- Makefile
+|-- README.md
+|-- .gitignore
 
-This is the proposed target structure. Existing source files will be reorganized only after verifying dependencies and build configuration.
+## 9. Testing
 
-## 9. Security and Reliability Considerations
+The project includes separate test programs for:
 
-- Validate all incoming API requests.
-- Use parameterized SQLite statements.
-- Validate names and paths.
-- Prevent circular directory movement.
-- Prevent duplicate sibling names.
-- Use database transactions.
-- Handle memory allocation failures.
-- Release allocated memory safely.
-- Validate database records before tree reconstruction.
-- Restrict the initial server to local development access.
+- Circular movement prevention.
+- File and directory deletion.
+- Invalid input handling.
+- Memory allocation and cleanup.
+- Directory movement.
+- Renaming operations.
 
-## 10. Development Roadmap
+The Makefile provides commands to build the application and execute the test suite.
 
-1. Finalize application architecture.
-2. Design SQLite database schema.
-3. Verify and install required dependencies.
-4. Integrate CivetWeb and cJSON.
-5. Build the C backend.
-6. Connect the existing FCNS core engine.
-7. Develop frontend dashboard.
-8. Integrate frontend and backend.
-9. Implement persistence and error handling.
-10. Perform end-to-end testing.
-11. Prepare deployment and final documentation.
+## 10. Project Scope
 
-## 11. Current Scope
+The current implementation focuses on a C-based virtual file directory system.
 
-NEXORA will initially operate as a Virtual File System.
+The project includes:
 
-It will manage virtual files and directories stored in SQLite. It will not manipulate actual operating-system files.
+- A console-based user interface.
+- General Tree and FCNS implementation.
+- Directory management operations.
+- An HTTP backend.
+- JSON-based API communication.
+- SQLite persistence.
+- Automated C test programs.
 
-## 12. Conclusion
+A browser-based frontend is not part of the current project scope.
 
-The proposed architecture transforms NEXORA from a console-based Data Structures project into a modular C-based web application.
+## 11. Conclusion
 
-The General Tree and FCNS representation remain the foundation of the system, while CivetWeb, cJSON and SQLite provide the infrastructure required for web-based interaction and persistent storage.
+NEXORA combines Data Structures, C programming, HTTP communication, and database management in a modular virtual file directory system.
+
+Its console interface provides direct interaction, while the backend and database layers extend its functionality and provide persistent storage.
